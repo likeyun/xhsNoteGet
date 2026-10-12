@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ff2442"><meta name="description" content="小红书图文视频解析与媒体提取工具">
+<title>xhsNoteGet · 小红书作品解析</title>
+<style>
+:root{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;color:#222631;background:#f6f7fb}
+*{box-sizing:border-box}body{margin:0}button,input,textarea{font:inherit}
+.wrap{max-width:1060px;margin:auto;padding:28px 18px 60px}
+header{text-align:center;padding:48px 0 36px}header .logo{display:inline-flex;background:#ff2442;color:#fff;font-size:23px;font-weight:850;align-items:center;justify-content:center;width:60px;height:60px;border-radius:19px;box-shadow:0 10px 30px #ff244244}h1{font-size:30px;margin:20px 0 8px}header p,.muted{color:#8c94a2;font-size:14px}
+.panel{background:#fff;border:1px solid #e9ebf0;border-radius:18px;padding:26px;margin:0 0 22px;box-shadow:0 8px 28px #22222206}
+h2{font-size:18px;margin:0 0 18px}.entry{width:100%;min-height:108px;border:1px solid #e4e6ed;background:#fcfcfe;border-radius:12px;padding:15px;resize:vertical;outline:none;line-height:1.6}.entry:focus{border-color:#ff2442}
+.actions,.tools{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+button,.linkbtn{border:0;border-radius:10px;padding:11px 18px;background:#f1f2f5;color:#333;cursor:pointer;transition:.2s;text-decoration:none;display:inline-flex;justify-content:center;align-items:center}
+button:hover,.linkbtn:hover{filter:brightness(.96)}button:disabled{opacity:.55;cursor:wait}.primary{background:#ff2442;color:white}
+.hint{font-size:12px;color:#a3a8b2;margin-top:12px}
+.error{margin-top:14px;color:#c5263f;background:#fff0f2;border-radius:10px;padding:12px;display:none;font-size:13px}
+.note-title{font-size:23px;font-weight:700;overflow-wrap:anywhere}.meta{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#737b89;font-size:13px;margin:13px 0}
+.desc{white-space:pre-wrap;overflow-wrap:anywhere;color:#59616f;line-height:1.8;font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #eee;margin-top:20px;padding-top:17px;text-align:center;gap:8px}
+.stats strong{display:block;font-size:19px}.stats small{color:#9aa1ad}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+.item{border:1px solid #eee;border-radius:12px;overflow:hidden;background:#fafafa}
+.preview{aspect-ratio:3/4;position:relative;background:#f2f2f4;display:flex;align-items:center;justify-content:center}
+.preview img,.preview video{width:100%;height:100%;object-fit:contain}
+.preview .label{position:absolute;top:8px;left:8px;background:#252629c9;color:#fff;border-radius:5px;padding:5px 8px;font-size:11px}
+.item .tools{padding:10px;margin:0;gap:7px}.item .tools button{flex:1;padding:9px 4px;font-size:12px}.item a{color:#ff2442}
+footer{text-align:center;font-size:12px;color:#a4aab5;margin-top:32px}
+@media(max-width:650px){header{padding:20px 0 28px}h1{font-size:23px}.panel{padding:16px;border-radius:14px}.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.note-title{font-size:18px}.item .tools{padding:7px}.item .tools button{font-size:11px;padding:8px 2px}}
+</style>
+</head>
+<body>
+<main class="wrap">
+<header><span class="logo">小</span><h1>小红书作品解析</h1><p>图文 · 视频 · Live Photo · 无水印媒体地址</p></header>
+<section class="panel"><h2>解析作品</h2>
+<textarea id="url" class="entry" placeholder="粘贴小红书链接或分享文案，支持 xhslink.cn / xhslink.com / xiaohongshu.com"></textarea>
+<div class="actions"><button id="submit" class="primary">立即解析</button><button id="paste">粘贴</button><button id="clear">清空</button></div>
+<div class="hint">仅解析你有权获取或下载的作品。部分作品可能需要配置服务端 Cookie。</div>
+<div class="error" id="error" role="alert"></div></section>
+<section class="panel" id="info" hidden>
+<h2>作品详情</h2><div class="note-title" id="title"></div>
+<div class="meta"><span id="author"></span><span id="time"></span></div>
+<div class="desc" id="desc"></div>
+<div class="stats"><div><strong id="likes">0</strong><small>点赞</small></div><div><strong id="favorites">0</strong><small>收藏</small></div><div><strong id="comments">0</strong><small>评论</small></div><div><strong id="shares">0</strong><small>分享</small></div></div>
+<div class="actions"><a class="linkbtn" id="original" target="_blank" rel="noopener noreferrer">查看原作品</a></div>
+</section>
+<section class="panel" id="media" hidden><h2 id="mediaTitle">媒体文件</h2>
+<div class="actions" style="margin:0 0 18px"><button class="primary" id="all">批量下载图片 / 视频</button><button id="copyAll">复制全部地址</button></div>
+<div class="grid" id="grid"></div><p class="hint">部分媒体 CDN 禁止跨域下载，遇到这种情况会打开原始地址；浏览器可能拦截多文件下载。</p>
+</section><footer>Open Source · xhsNoteGet · Powered by XHS-Downloader</footer>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let files=[];
+const domains=['xhslink.cn','xhslink.com','xiaohongshu.com'];
+function extract(text){
+  const matches=text.match(/https?:\/\/[^\s<>\u3000"'，。]+/gi)||[];
+  for(const m of matches){try{const u=new URL(m.replace(/[),;!?]+$/,''));const h=u.hostname.toLowerCase();if(domains.some(d=>h===d||h.endsWith('.'+d)))return u.href}catch{}}
+  return '';
+}
+function error(msg){$('error').textContent=msg;$('error').style.display=msg?'block':'none'}
+function reset(){files=[];$('info').hidden=true;$('media').hidden=true;$('grid').replaceChildren();error('')}
+$('clear').onclick=()=>{$('url').value='';reset()};
+$('paste').onclick=async()=>{try{$('url').value=await navigator.clipboard.readText()}catch{error('无法访问剪贴板，请手动粘贴')}};
+$('submit').onclick=async()=>{
+  const url=extract($('url').value);reset();if(!url)return error('请输入有效的小红书作品链接');
+  const btn=$('submit');btn.disabled=true;btn.textContent='正在解析…';
+  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),65000);
+  try{
+    const response=await fetch('/api/parse.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url}),signal:controller.signal});
+    const result=await response.json();if(!response.ok||result.code!==0)throw Error(result.message||'解析失败');
+    render(result.data);
+  }catch(e){error(e.name==='AbortError'?'请求超时，请稍后重试':e.message)}
+  finally{clearTimeout(timer);btn.disabled=false;btn.textContent='立即解析'}
+};
+function safeMedia(u){try{const p=new URL(u);return ['http:','https:'].includes(p.protocol)?p.href:''}catch{return ''}}
+function render(d){
+  $('info').hidden=false;
+  for(const [id,key] of [['title','title'],['author','author'],['desc','description'],['likes','likes'],['favorites','favorites'],['comments','comments'],['shares','shares']])$(id).textContent=d[key]??'';
+  $('author').textContent='作者：'+(d.author||'未知');$('time').textContent=(d.published_at||'').replace('_',' ');
+  const original=safeMedia(d.original_url);$('original').href=original||'#';$('original').hidden=!original;
+  files=[...(d.images||[]).map((u,i)=>({url:safeMedia(u),name:'image_'+(i+1)+'.jpg',type:'image'})),...(d.live_videos||[]).map((u,i)=>({url:safeMedia(u),name:'live_'+(i+1)+'.mp4',type:'video'}))].filter(x=>x.url);
+  if(!files.length&&d.cover){const u=safeMedia(d.cover);if(u)files.push({url:u,name:'cover.jpg',type:'image'})}
+  $('media').hidden=!files.length;$('mediaTitle').textContent='媒体文件 · '+files.length+' 个';
+  const grid=$('grid');grid.replaceChildren();
+  files.forEach((item,i)=>{
+    const card=document.createElement('article');card.className='item';
+    const preview=document.createElement('div');preview.className='preview';
+    const el=document.createElement(item.type==='image'?'img':'video');
+    el.src=item.url.replace(/^http:\/\//,'https://');
+    el.referrerPolicy='no-referrer';
+    if(item.type==='image'){el.loading='lazy';el.alt='作品图片 '+(i+1)}
+    else{el.controls=true;el.playsInline=true;el.preload='none'}
+    const label=document.createElement('span');label.className='label';label.textContent=(i+1)+' · '+(item.type==='image'?'图片':'视频');
+    preview.append(el,label);
+    const tools=document.createElement('div');tools.className='tools';
+    const copy=document.createElement('button');copy.textContent='复制';copy.onclick=()=>copyText(item.url);
+    const dl=document.createElement('button');dl.textContent='下载';dl.className='primary';dl.onclick=()=>download(item);
+    tools.append(copy,dl);card.append(preview,tools);grid.appendChild(card);
+  });
+}
+async function copyText(text){try{await navigator.clipboard.writeText(text)}catch{error('复制失败，请检查浏览器权限')}}
+async function download(f){
+  try{
+    const r=await fetch(f.url,{referrerPolicy:'no-referrer'});
+    if(!r.ok)throw Error('HTTP '+r.status);
+    const blob=await r.blob(),u=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=u;a.download=f.name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);
+  }catch{window.open(f.url.replace(/^http:\/\//,'https://'),'_blank','noopener,noreferrer')}
+}
+$('copyAll').onclick=()=>copyText(files.map(f=>f.url).join('\n'));
+$('all').onclick=async()=>{
+  if(files.length>1&&!confirm('将依次尝试下载 '+files.length+' 个媒体文件，浏览器可能拦截多文件下载，继续吗？'))return;
+  for(const f of files){await download(f);await new Promise(resolve=>setTimeout(resolve,300))}
+};
+</script>
+</body></html>
