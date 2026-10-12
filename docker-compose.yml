@@ -1,0 +1,22 @@
+services:
+  web:
+    build: ./docker/php
+    restart: unless-stopped
+    ports:
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8080}:80"
+    environment:
+      XHS_API_URL: http://xhs:5556/xhs/detail
+      XHS_COOKIE: ${XHS_COOKIE:-}
+      API_KEY: ${API_KEY:-}
+    volumes:
+      - ./web:/var/www/html:ro
+    depends_on:
+      - xhs
+  xhs:
+    image: joeanamier/xhs-downloader:latest
+    restart: unless-stopped
+    command: ["python", "main.py", "api"]
+    volumes:
+      - ./data/Volume:/app/Volume
+    expose:
+      - "5556"
